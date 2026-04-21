@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 // ── Banco de dados em memória (simples para começar) ──
 // ⚠️ Se o servidor reiniciar, os dados somem.
 // Quando quiser persistir dados, troque por PostgreSQL (também gratuito no Railway).
-const licenses = {};
+const licenses = {};licenses['raphaelguastaferro015@gmail.com'] = { plan: 'vitalicio', expiry: null, active: true, activatedAt: new Date().toISOString() };
 // Exemplo de estrutura:
 // { 'cliente@email.com': { plan: 'mensal', expiry: '2025-02-01', active: true } }
 
