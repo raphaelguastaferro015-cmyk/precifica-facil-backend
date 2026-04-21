@@ -51,115 +51,88 @@ app.get('/check-license', (req, res) => {
 });
 
 // ══════════════════════════════════════════
-//  WEBHOOK — HOTMART
-//  Cole a URL desse endpoint no painel da Hotmart:
-//  https://SEU-BACKEND.railway.app/webhook/hotmart
+//  WEBHOOK — CAKTO
+//  Cole essa URL no painel da Cakto em:
+//  Configurações → Webhooks → Nova URL:
+//  https://precifica-facil-backend-production.up.railway.app/webhook/cakto
 // ══════════════════════════════════════════
-app.post('/webhook/hotmart', (req, res) => {
+app.post('/webhook/cakto', (req, res) => {
   try {
     const body = req.body;
 
-    // Hotmart envia o evento em body.event
-    const event = body?.event || body?.data?.purchase?.status;
+    console.log('[Cakto] Webhook recebido:', JSON.stringify(body));
+
+    // Cakto envia o status do pedido
+    const status = (
+      body?.status ||
+      body?.order?.status ||
+      body?.data?.status ||
+      ''
+    ).toLowerCase();
 
     // Pegar o email do comprador
     const email = (
-      body?.data?.buyer?.email ||
+      body?.customer?.email ||
+      body?.data?.customer?.email ||
       body?.buyer?.email ||
+      body?.email ||
       ''
     ).toLowerCase().trim();
 
     if (!email) {
-      console.log('[Hotmart] Webhook recebido sem email:', JSON.stringify(body));
-      return res.status(200).json({ ok: true }); // Sempre responder 200 para a Hotmart
+      console.log('[Cakto] Webhook sem email — ignorado');
+      return res.status(200).json({ ok: true });
     }
 
-    // Mapear o nome do produto para o plano
-    // ⚠️ ALTERE os nomes abaixo para bater com os nomes dos seus produtos na Hotmart
+    // ⚠️ ALTERE os nomes para bater com seus produtos na Cakto
+    // Ex: se seu produto vitalício se chama "Precifica Fácil Vitalício"
     const productName = (
-      body?.data?.product?.name ||
       body?.product?.name ||
+      body?.data?.product?.name ||
+      body?.offer?.name ||
       ''
     ).toLowerCase();
 
     let plan = 'mensal'; // padrão
-    if (productName.includes('vitalic') || productName.includes('lifetime') || productName.includes('único')) {
+    if (
+      productName.includes('vitalic') ||
+      productName.includes('vitalício') ||
+      productName.includes('lifetime') ||
+      productName.includes('único') ||
+      productName.includes('unico')
+    ) {
       plan = 'vitalicio';
     }
 
-    // Processar eventos de compra aprovada
+    // Compra aprovada / paga
     if (
-      event === 'PURCHASE_APPROVED' ||
-      event === 'PURCHASE_COMPLETE' ||
-      event === 'APPROVED' ||
-      event === 'complete'
+      status === 'paid' ||
+      status === 'approved' ||
+      status === 'complete' ||
+      status === 'completed' ||
+      status === 'active' ||
+      status === 'confirmed'
     ) {
       activateLicense(email, plan);
-      console.log(`[Hotmart] ✅ Licença ativada — ${email} | Plano: ${plan}`);
+      console.log(`[Cakto] ✅ Licença ativada — ${email} | Plano: ${plan}`);
     }
 
-    // Processar cancelamento ou chargeback
+    // Reembolso, cancelamento ou chargeback
     if (
-      event === 'PURCHASE_CANCELED' ||
-      event === 'PURCHASE_CHARGEBACK' ||
-      event === 'PURCHASE_REFUNDED' ||
-      event === 'CANCELED' ||
-      event === 'REFUNDED'
+      status === 'refunded' ||
+      status === 'canceled' ||
+      status === 'cancelled' ||
+      status === 'chargeback' ||
+      status === 'expired'
     ) {
       revokeLicense(email);
-      console.log(`[Hotmart] ❌ Licença revogada — ${email}`);
+      console.log(`[Cakto] ❌ Licença revogada — ${email}`);
     }
 
     return res.status(200).json({ ok: true });
   } catch (err) {
-    console.error('[Hotmart] Erro no webhook:', err.message);
+    console.error('[Cakto] Erro no webhook:', err.message);
     return res.status(200).json({ ok: true }); // Sempre 200 para não reenviar
-  }
-});
-
-// ══════════════════════════════════════════
-//  WEBHOOK — KIWIFY
-//  Cole a URL no painel da Kiwify:
-//  https://SEU-BACKEND.railway.app/webhook/kiwify
-// ══════════════════════════════════════════
-app.post('/webhook/kiwify', (req, res) => {
-  try {
-    const body = req.body;
-    const status = body?.order_status || body?.status || '';
-
-    const email = (
-      body?.Customer?.email ||
-      body?.customer?.email ||
-      ''
-    ).toLowerCase().trim();
-
-    if (!email) {
-      console.log('[Kiwify] Webhook sem email:', JSON.stringify(body));
-      return res.status(200).json({ ok: true });
-    }
-
-    // ⚠️ ALTERE o nome do produto para bater com o seu na Kiwify
-    const productName = (body?.Product?.name || body?.product_name || '').toLowerCase();
-
-    let plan = 'mensal';
-    if (productName.includes('vitalic') || productName.includes('lifetime') || productName.includes('único')) {
-      plan = 'vitalicio';
-    }
-
-    if (status === 'paid' || status === 'approved' || status === 'complete') {
-      activateLicense(email, plan);
-      console.log(`[Kiwify] ✅ Licença ativada — ${email} | Plano: ${plan}`);
-    }
-
-    if (status === 'refunded' || status === 'canceled' || status === 'chargeback') {
-      revokeLicense(email);
-      console.log(`[Kiwify] ❌ Licença revogada — ${email}`);
-    }
-
-    return res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('[Kiwify] Erro no webhook:', err.message);
-    return res.status(200).json({ ok: true });
   }
 });
 
